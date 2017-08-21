@@ -44,6 +44,7 @@ public class VesselVisitManager {
             Validator.listNotEmpty("缺少进出口船图箱数据", smartCwpImportData.getSmartVesselContainerInfoList());
             for (SmartVesselContainerInfo smartVesselContainerInfo : smartCwpImportData.getSmartVesselContainerInfoList()) {
                 if (smartVesselContainerInfo.getBerthId().equals(berthId)) {
+                    Long vpcCntrId = smartVesselContainerInfo.getVpcCntrId();
                     String vLocation = smartVesselContainerInfo.getvLocation();
                     String size = smartVesselContainerInfo.getcSzCsizecd();
                     String type = smartVesselContainerInfo.getcTypeCd();
@@ -64,6 +65,7 @@ public class VesselVisitManager {
                         moContainer.setCntHeight(cntHeight);
                         moContainer.setCntWorkTime(cntWorkTime);
                         moContainer.setWeightKg(weight);
+                        moContainer.setVpcCntrId(vpcCntrId);
                         String manualFlag = smartVesselContainerInfo.getManualFlag();
                         if ("Y".equals(manualFlag)) { //人工指定工艺
                             moContainer.setWorkFlow(workFlow);

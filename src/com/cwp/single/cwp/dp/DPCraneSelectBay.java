@@ -14,32 +14,32 @@ public class DPCraneSelectBay implements Serializable {
     private Long dpWorkTime;
     private Double dpDistance;
     private boolean isTroughMachine;
-    private Long dpWorkTimeCopy;
-    private Long dpWorkTimeCopyAfter;
+    private Long dpWorkTimeToDpBefore;
+    private Long dpWorkTimeToDpAfter;
 
     public DPCraneSelectBay(DPPair dpPair) {
         this.dpPair = dpPair;
         this.dpWorkTime = 0L;
-        this.dpWorkTimeCopy = 0L;
-        this.dpWorkTimeCopyAfter = 0L;
+        this.dpWorkTimeToDpBefore = 0L;
+        this.dpWorkTimeToDpAfter = 0L;
         this.dpDistance = Double.MAX_VALUE;
         this.isTroughMachine = false;
     }
 
-    public Long getDpWorkTimeCopyAfter() {
-        return dpWorkTimeCopyAfter;
+    public Long getDpWorkTimeToDpAfter() {
+        return dpWorkTimeToDpAfter;
     }
 
-    public void setDpWorkTimeCopyAfter(Long dpWorkTimeCopyAfter) {
-        this.dpWorkTimeCopyAfter = dpWorkTimeCopyAfter;
+    public void setDpWorkTimeToDpAfter(Long dpWorkTimeToDpAfter) {
+        this.dpWorkTimeToDpAfter = dpWorkTimeToDpAfter;
     }
 
-    public Long getDpWorkTimeCopy() {
-        return dpWorkTimeCopy;
+    public Long getDpWorkTimeToDpBefore() {
+        return dpWorkTimeToDpBefore;
     }
 
-    public void setDpWorkTimeCopy(Long dpWorkTimeCopy) {
-        this.dpWorkTimeCopy = dpWorkTimeCopy;
+    public void setDpWorkTimeToDpBefore(Long dpWorkTimeToDpBefore) {
+        this.dpWorkTimeToDpBefore = dpWorkTimeToDpBefore;
     }
 
     public Long getDpWorkTime() {

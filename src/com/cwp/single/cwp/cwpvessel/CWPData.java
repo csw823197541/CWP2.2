@@ -6,6 +6,7 @@ import com.cwp.entity.CWPCrane;
 import com.cwp.entity.CWPMachine;
 import com.cwp.single.cwp.processorder.CWPHatch;
 
+import javax.swing.text.StyledEditorKit;
 import java.util.*;
 
 /**
@@ -21,32 +22,20 @@ public class CWPData {
     private Map<Long, CWPHatch> cwpHatchMap;
     private Map<Double, CWPMachine> cwpMachineMap;//驾驶台、烟囱等机械信息<位置, 机械信息>
 
-    private boolean isFirstRealWork;
-    private boolean isDoWorkCwp;
-    private Boolean firstDoWorkCwp;
+    private Boolean doWorkCwp;
+    private Boolean doPlanCwp;
+    private Boolean firstDoCwp;
 
     //最少、最多桥机数
-    private Integer maxCraneNum;
-    private Integer minCraneNum;
+    private Integer initMaxCraneNum;
+    private Integer initMinCraneNum;
 
-    private Long startWorkTime;
-    private Long currentWorkTime;//cwp当前作业时间,全局时间
-    private Long totalWorkTime;//该船所有作业时间量
-    private Long curTotalWorkTime;//当前时刻，该船所有作业时间量
+    private Long cwpStartTime;
+    private Long cwpCurrentTime;//cwp当前作业时间,全局时间
 
-    private boolean isDelCraneNow;//是否现在可以减桥机
-    private Long delCraneTime;//减桥机时间
-    private Integer delCraneNum;//减几部桥机
-    private boolean isAddCraneNow;//是否现在可以加桥机
-    private Long addCraneTime;//加桥机时间
-    private Integer addCraneNum;//加几部桥机
-
-    private boolean hasCraneBreakdownCanMove;//是否有桥机发生故障，可以移动
-    private boolean hasCraneBreakdownCanNotMove;//是否有桥机发生故障，不可以移动
-    private boolean hasCraneCanWorkNow;//是否现在有桥机可以正常工作（如维修完毕）
-    private boolean hasCraneCanNotWorkNow;//是否现在有桥机不能正常工作（如进入维修状态）
-
-    private Boolean autoDelCraneNow; //CWP计算过程中发生自动减桥机标识
+    private Boolean craneBreakdownNow;//是否现在有桥机发生故障
+    private Boolean craneCanWorkNow;//是否现在有桥机可以正常工作（如维修完毕）
+    private Boolean craneCanNotWorkNow;//是否现在有桥机不能正常工作（如进入维修状态）
 
     public CWPData(VesselVisit vesselVisit) {
         this.vesselVisit = vesselVisit;
@@ -54,198 +43,94 @@ public class CWPData {
         cwpCraneMap = new HashMap<>();
         cwpHatchMap = new HashMap<>();
         cwpMachineMap = new HashMap<>();
-        isDelCraneNow = false;
-        isAddCraneNow = false;
-        hasCraneBreakdownCanMove = false;
-        hasCraneBreakdownCanNotMove = false;
-        hasCraneCanWorkNow = false;
-        hasCraneCanNotWorkNow = false;
-        isFirstRealWork = true;
-        isDoWorkCwp = false;
-        firstDoWorkCwp = true;
-        maxCraneNum = 0;
-        minCraneNum = 0;
-        totalWorkTime = 0L;
-        curTotalWorkTime = 0L;
-        autoDelCraneNow = false;
+        craneBreakdownNow = false;
+        craneCanWorkNow = false;
+        craneCanNotWorkNow = false;
     }
 
-    public Boolean getAutoDelCraneNow() {
-        return autoDelCraneNow;
+    public Boolean getDoWorkCwp() {
+        return doWorkCwp;
     }
 
-    public void setAutoDelCraneNow(Boolean autoDelCraneNow) {
-        this.autoDelCraneNow = autoDelCraneNow;
+    public void setDoWorkCwp(Boolean doWorkCwp) {
+        this.doWorkCwp = doWorkCwp;
     }
 
-    public boolean isFirstRealWork() {
-        return isFirstRealWork;
+    public Boolean getDoPlanCwp() {
+        return doPlanCwp;
     }
 
-    public void setFirstRealWork(boolean firstRealWork) {
-        isFirstRealWork = firstRealWork;
+    public void setDoPlanCwp(Boolean doPlanCwp) {
+        this.doPlanCwp = doPlanCwp;
     }
 
-    public boolean isDoWorkCwp() {
-        return isDoWorkCwp;
+    public Boolean getFirstDoCwp() {
+        return firstDoCwp;
     }
 
-    public void setDoWorkCwp(boolean doWorkCwp) {
-        isDoWorkCwp = doWorkCwp;
+    public void setFirstDoCwp(Boolean firstDoCwp) {
+        this.firstDoCwp = firstDoCwp;
     }
 
-    public Boolean getFirstDoWorkCwp() {
-        return firstDoWorkCwp;
+    public Integer getInitMaxCraneNum() {
+        return initMaxCraneNum;
     }
 
-    public void setFirstDoWorkCwp(Boolean firstDoWorkCwp) {
-        this.firstDoWorkCwp = firstDoWorkCwp;
+    public void setInitMaxCraneNum(Integer initMaxCraneNum) {
+        this.initMaxCraneNum = initMaxCraneNum;
+    }
+
+    public Integer getInitMinCraneNum() {
+        return initMinCraneNum;
+    }
+
+    public void setInitMinCraneNum(Integer initMinCraneNum) {
+        this.initMinCraneNum = initMinCraneNum;
     }
 
     public VesselVisit getVesselVisit() {
         return this.vesselVisit;
     }
 
-    public boolean isHasCraneBreakdownCanMove() {
-        return hasCraneBreakdownCanMove;
+    public Boolean getCraneBreakdownNow() {
+        return craneBreakdownNow;
     }
 
-    public void setHasCraneBreakdownCanMove(boolean hasCraneBreakdownCanMove) {
-        this.hasCraneBreakdownCanMove = hasCraneBreakdownCanMove;
+    public void setCraneBreakdownNow(Boolean craneBreakdownNow) {
+        this.craneBreakdownNow = craneBreakdownNow;
     }
 
-    public boolean isHasCraneBreakdownCanNotMove() {
-        return hasCraneBreakdownCanNotMove;
+    public Boolean getCraneCanWorkNow() {
+        return craneCanWorkNow;
     }
 
-    public void setHasCraneBreakdownCanNotMove(boolean hasCraneBreakdownCanNotMove) {
-        this.hasCraneBreakdownCanNotMove = hasCraneBreakdownCanNotMove;
+    public void setCraneCanWorkNow(Boolean craneCanWorkNow) {
+        this.craneCanWorkNow = craneCanWorkNow;
     }
 
-    public boolean isHasCraneCanWorkNow() {
-        return hasCraneCanWorkNow;
+    public Boolean getCraneCanNotWorkNow() {
+        return craneCanNotWorkNow;
     }
 
-    public void setHasCraneCanWorkNow(boolean hasCraneCanWorkNow) {
-        this.hasCraneCanWorkNow = hasCraneCanWorkNow;
+    public void setCraneCanNotWorkNow(Boolean craneCanNotWorkNow) {
+        this.craneCanNotWorkNow = craneCanNotWorkNow;
     }
 
-    public boolean isHasCraneCanNotWorkNow() {
-        return hasCraneCanNotWorkNow;
+    public Long getCwpStartTime() {
+        return cwpStartTime;
     }
 
-    public void setHasCraneCanNotWorkNow(boolean hasCraneCanNotWorkNow) {
-        this.hasCraneCanNotWorkNow = hasCraneCanNotWorkNow;
+    public void setCwpStartTime(Long cwpStartTime) {
+        this.cwpStartTime = cwpStartTime;
     }
 
-    public boolean isDelCraneNow() {
-        return isDelCraneNow;
+    public Long getCwpCurrentTime() {
+        return cwpCurrentTime;
     }
 
-    public void setDelCraneNow(boolean delCraneNow) {
-        isDelCraneNow = delCraneNow;
+    public void setCwpCurrentTime(Long cwpCurrentTime) {
+        this.cwpCurrentTime = cwpCurrentTime;
     }
-
-    public boolean isAddCraneNow() {
-        return isAddCraneNow;
-    }
-
-    public void setAddCraneNow(boolean addCraneNow) {
-        isAddCraneNow = addCraneNow;
-    }
-
-    public Long getDelCraneTime() {
-        return delCraneTime;
-    }
-
-    public void setDelCraneTime(Long delCraneTime) {
-        this.delCraneTime = delCraneTime;
-    }
-
-    public Integer getDelCraneNum() {
-        return delCraneNum;
-    }
-
-    public void setDelCraneNum(Integer delCraneNum) {
-        this.delCraneNum = delCraneNum;
-    }
-
-    public Long getAddCraneTime() {
-        return addCraneTime;
-    }
-
-    public void setAddCraneTime(Long addCraneTime) {
-        this.addCraneTime = addCraneTime;
-    }
-
-    public Integer getAddCraneNum() {
-        return addCraneNum;
-    }
-
-    public void setAddCraneNum(Integer addCraneNum) {
-        this.addCraneNum = addCraneNum;
-    }
-
-    public Long getStartWorkTime() {
-        return startWorkTime;
-    }
-
-    public void setStartWorkTime(Long startWorkTime) {
-        this.startWorkTime = startWorkTime;
-    }
-
-    public void addCurrentWorkTime(Long currentWorkTime) {
-        this.currentWorkTime += currentWorkTime;
-    }
-
-    public Long getCurrentWorkTime() {
-        return currentWorkTime;
-    }
-
-    public void setCurrentWorkTime(Long currentWorkTime) {
-        this.currentWorkTime = currentWorkTime;
-    }
-
-    public Long getTotalWorkTime() {
-        return totalWorkTime;
-    }
-
-    public void setTotalWorkTime(Long totalWorkTime) {
-        this.totalWorkTime = totalWorkTime;
-    }
-
-    public void addTotalWorkTime(Long totalWorkTime) {
-        this.totalWorkTime += totalWorkTime;
-    }
-
-    public Long getCurTotalWorkTime() {
-        return curTotalWorkTime;
-    }
-
-    public void setCurTotalWorkTime(Long curTotalWorkTime) {
-        this.curTotalWorkTime = curTotalWorkTime;
-    }
-
-    public void addCurTotalWorkTime(Long curTotalWorkTime) {
-        this.curTotalWorkTime += curTotalWorkTime;
-    }
-
-    public Integer getMaxCraneNum() {
-        return maxCraneNum;
-    }
-
-    public void setMaxCraneNum(Integer maxCraneNum) {
-        this.maxCraneNum = maxCraneNum;
-    }
-
-    public Integer getMinCraneNum() {
-        return minCraneNum;
-    }
-
-    public void setMinCraneNum(Integer minCraneNum) {
-        this.minCraneNum = minCraneNum;
-    }
-
 
     public CWPBay getCWPBayByBayNo(Integer bayNo) {
         return this.cwpBayMap.get(bayNo);
