@@ -174,6 +174,7 @@ public class ChangeDpWTMethod {
         }
         for (DPPair dpPair : dpResult.getDpTraceBack()) {
             String craneNo = (String) dpPair.getFirst();
+            CWPCrane cwpCraneCur = cwpData.getCWPCraneByCraneNo(craneNo);
             CWPCrane cwpCraneFront = cwpData.getFrontCWPCrane(craneNo);
             CWPCrane cwpCraneNext = cwpData.getNextCWPCrane(craneNo);
             Integer bayNoCur = (Integer) dpPair.getSecond();
@@ -187,7 +188,9 @@ public class ChangeDpWTMethod {
                     if (cwpBayLast.getDpAvailableWorkTime() > 0 && !cwpBayLast.isDividedBay()) { //上次选择倍位有量，且不是分割倍
                         if (cwpCraneFront != null && cwpCraneNext == null) {
                             Integer bayNoFront = PublicMethod.getSelectBayNoInDpResult(cwpCraneFront.getCraneNo(), dpResult);
-                            if (bayNoFront != null) {
+                            if (bayNoFront == null) {
+                                keep = true;
+                            } else {
                                 CWPBay cwpBayFront = cwpData.getCWPBayByBayNo(bayNoFront);
                                 if (cwpBayLast.getWorkPosition() - cwpBayFront.getWorkPosition() >= 2 * cwpConfiguration.getCraneSafeSpan()) {
                                     keep = true;
@@ -200,8 +203,10 @@ public class ChangeDpWTMethod {
                                 if (cwpBayNext.getWorkPosition() - cwpBayLast.getWorkPosition() >= 2 * cwpConfiguration.getCraneSafeSpan()) {
                                     keep = true;
                                 }
+                            } else {
+                                keep = true;
                             }
-                        } else if (cwpCraneFront != null) {
+                        } else if (cwpCraneFront != null || cwpCraneNext != null) {
                             Integer bayNoFront = PublicMethod.getSelectBayNoInDpResult(cwpCraneFront.getCraneNo(), dpResult);
                             Integer bayNoNext = PublicMethod.getSelectBayNoInDpResult(cwpCraneNext.getCraneNo(), dpResult);
                             if (bayNoFront != null && bayNoNext != null) {
@@ -214,10 +219,13 @@ public class ChangeDpWTMethod {
                             }
                         }
                     }
+                    if (cwpBayCur.isKeyBay()) { //如果是重点倍的话，还是可以回来作业的
+                        keep = !keep && keep;
+                    }
                 }
             }
             if (keep) {
-                cwpLogger.logInfo("Change dpWorkTime to keep working(" + craneNo + ":" + bayNoCur + ").");
+                cwpLogger.logInfo("Change dpWorkTime to keep working(" + craneNo + ":" + bayNoLast + ").");
                 DPCraneSelectBay dpCraneSelectBay = DPCraneSelectBay.getDpCraneSelectBayByPair(dpCraneSelectBays, new DPPair<>(craneNo, bayNoLast));
                 if (dpCraneSelectBay != null) {
                     dpCraneSelectBay.addDpWorkTime(cwpConfiguration.getKeepSelectedBayWorkTime());
@@ -225,40 +233,43 @@ public class ChangeDpWTMethod {
             }
             if (methodParameter.getChangeSideCraneWork()) {
                 if (!bayNoCur.equals(bayNoLast)) { //桥机当前选择与上次不同倍位
-                    if (bayNoLast != null) { //上次有选择倍位作业
-                        CWPBay cwpBayLast = cwpData.getCWPBayByBayNo(bayNoLast);
-                        double distance = cwpBayCur.getWorkPosition() - cwpBayLast.getWorkPosition();
-                        if ((distance > cwpConfiguration.getCraneSafeSpan() && cwpData.getFrontCWPCrane(craneNo) == null)
-                                || (distance < -cwpConfiguration.getCraneSafeSpan() && cwpData.getNextCWPCrane(craneNo) == null)) { //判断是否为第一部或者最后一部桥机，同时有没有往中间行过来作业很少的时间量
-                            if (minWorkTime < 20 * cwpConfiguration.getCraneMeanEfficiency() && dpResult.getDpTraceBack().size() > 1) { //那么就判断该桥机不要作业这个倍位了
-                                change = true;
-                            }
-                            //如果当前选择的倍位，在桥机安全距离内，不包括自身，没有其他倍位作业量了，说明不会受其他桥机影响，还是可以继续作业下去的
-                            boolean noneWork = true;
-                            for (CWPBay cwpBay : cwpData.getAllBays()) {
-                                double distance1 = Math.abs(cwpBay.getWorkPosition() - cwpBayCur.getWorkPosition());
-                                if (distance1 < 2 * cwpConfiguration.getCraneSafeSpan() && distance1 > cwpConfiguration.getCraneSafeSpan() / 2) {
-                                    if (cwpBay.getDpCurrentTotalWorkTime() > 0) {
-                                        noneWork = false;
+                    long maxWorkTime = PublicMethod.getMaxDpCurTotalWorkTimeInCraneMoveRange(cwpCraneCur, cwpBayCur, cwpData.getAllBays());
+                    if (maxWorkTime == 0) { //除了这个倍位，没有其他作业量了
+                        if (bayNoLast != null) { //该桥机上次有选择倍位作业
+                            CWPBay cwpBayLast = cwpData.getCWPBayByBayNo(bayNoLast);
+                            double distance = cwpBayCur.getWorkPosition() - cwpBayLast.getWorkPosition();
+                            if ((distance > cwpConfiguration.getCraneSafeSpan() && cwpData.getFrontCWPCrane(craneNo) == null)
+                                    || (distance < -cwpConfiguration.getCraneSafeSpan() && cwpData.getNextCWPCrane(craneNo) == null)) { //判断是否为第一部或者最后一部桥机，同时有没有往中间行过来作业
+                                if (minWorkTime < 20 * cwpConfiguration.getCraneMeanEfficiency() && dpResult.getDpTraceBack().size() > 1) { //并且是作业很少的时间量，那么就判断该桥机不要作业这个倍位了
+                                    change = true;
+                                }
+                                //如果该桥机当前选择的倍位，在桥机安全距离内，不包括自身，没有其他倍位作业量了，说明不会受其他桥机影响，还是有可能可以继续作业下去的
+                                boolean noneWork = true;
+                                for (CWPBay cwpBay : cwpData.getAllBays()) {
+                                    double distance1 = Math.abs(cwpBay.getWorkPosition() - cwpBayCur.getWorkPosition());
+                                    if (distance1 < 2 * cwpConfiguration.getCraneSafeSpan() && distance1 > cwpConfiguration.getCraneSafeSpan() / 2) {
+                                        if (cwpBay.getDpCurrentTotalWorkTime() > 0) {
+                                            noneWork = false;
+                                        }
                                     }
                                 }
+                                change = !(change && noneWork) && change;
                             }
-                            change = !(change && noneWork) && change;
                         }
-                    }
-                    if (bayNoLast == null && !cwpData.getFirstDoCwp()) { //上次没有选择倍位作业(非第一次DP)，并且是第一部或者最后一部桥机，那么就判断该桥机不要作业这个倍位了
-                        if (minWorkTime < 20 * cwpConfiguration.getCraneMeanEfficiency() && PublicMethod.isFirstOrLastCrane(craneNo, cwpData)) {
-                            change = true;
-                        }
-                        String craneNoLast = PublicMethod.getSelectCraneNoInDpResult(bayNoCur, dpResultLast); //当前倍位上次DP已经有桥机在作业了
-                        if (minWorkTime >= 20 * cwpConfiguration.getCraneMeanEfficiency() && craneNoLast != null && PublicMethod.isFirstOrLastCrane(craneNo, cwpData)) {
-                            change = true;
+                        if (bayNoLast == null && !cwpData.getFirstDoCwp()) { //该桥机上次没有选择倍位作业(非第一次DP)，并且是第一部或者最后一部桥机，那么就判断该桥机不要作业这个倍位了
+                            if (minWorkTime < 20 * cwpConfiguration.getCraneMeanEfficiency() && PublicMethod.isFirstOrLastCrane(craneNo, cwpData)) {
+                                change = true;
+                            }
+                            String craneNoLast = PublicMethod.getSelectCraneNoInDpResult(bayNoCur, dpResultLast); //当前倍位上次DP已经有桥机在作业了
+                            if (minWorkTime >= 20 * cwpConfiguration.getCraneMeanEfficiency() && craneNoLast != null && PublicMethod.isFirstOrLastCrane(craneNo, cwpData)) {
+                                change = true;
+                            }
                         }
                     }
                 }
             }
             if (change) {
-                cwpLogger.logInfo("Change dpWorkTime to 0 to control the side crane(" + craneNo + ").");
+                cwpLogger.logInfo("Change dpWorkTime to 0 to control the side crane(" + craneNo + ":" + bayNoCur + ").");
                 DPCraneSelectBay dpCraneSelectBay = DPCraneSelectBay.getDpCraneSelectBayByPair(dpCraneSelectBays, dpPair);
                 if (dpCraneSelectBay != null) {
                     dpCraneSelectBay.setDpWorkTime(0L);

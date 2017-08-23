@@ -58,6 +58,8 @@ public class CWPProcess {
         initBayTotalWorkTime(cwpBays);
         LogPrinter.printBayWorkTime(cwpBays);
 
+        initMethodParameter(cwpBays, methodParameter, cwpData);
+
         //计算重点倍
         findKeyBay(cwpBays);
 
@@ -99,6 +101,13 @@ public class CWPProcess {
                 cwpBay.setDpTotalWorkTime(cwpVessel.getTotalWorkTime(cwpBay.getBayNo()));
             }
             cwpBay.setDpCurrentTotalWorkTime(cwpBay.getDpTotalWorkTime());
+        }
+    }
+
+    private void initMethodParameter(List<CWPBay> cwpBays, MethodParameter methodParameter, CWPData cwpData) {
+        long allWorkTime = PublicMethod.getCurTotalWorkTime(cwpBays);
+        if (allWorkTime < 525 * cwpConfiguration.getCraneMeanEfficiency()) {
+            methodParameter.setChangeSideCraneWork(false);
         }
     }
 
@@ -504,10 +513,11 @@ public class CWPProcess {
                 if (cwpBay.getDpAvailableWorkTime() > 0) {
                     if (methodParameter.getKeepMaxRoadWork()) {
                         if (cwpBay.getMaxRoadBay()) {
-                            Integer bayNo = PublicMethod.getSelectBayNoInDpResult(cwpCrane.getCraneNo(), dpResultLast);
-                            if (cwpBay.getBayNo().equals(bayNo)) {
-                                dpCraneSelectBay.addDpWorkTime(cwpConfiguration.getKeepSelectedBayWorkTime());
-                            }
+                            dpCraneSelectBay.addDpWorkTime(cwpConfiguration.getKeepSelectedBayWorkTime());
+//                            Integer bayNo = PublicMethod.getSelectBayNoInDpResult(cwpCrane.getCraneNo(), dpResultLast);
+//                            if (cwpBay.getBayNo().equals(bayNo)) {
+//                                dpCraneSelectBay.addDpWorkTime(cwpConfiguration.getKeepSelectedBayWorkTime());
+//                            }
                         }
                     }
                     if (cwpBay.getWorkPosition().compareTo(cwpCrane.getDpWorkPositionFrom()) > -1 &&
@@ -767,9 +777,11 @@ public class CWPProcess {
             if (divideCraneMoveRange) {
                 List<CWPCrane> maxCwpCraneList = new ArrayList<>();
                 maxCwpCraneList.add(maxCwpCrane);
+                //判断一下最大倍位的桥机之前是否需要作业分割倍，将分割倍位标记置为false，说明该桥机不在帮忙作业分割倍位了
+                AutoDelCraneMethod.analyzeMaxRoadCrane(maxCwpCrane, cwpData);
                 PublicMethod.clearCraneAndBay(maxCwpCraneList, maxCwpBayList);
                 divideCraneMoveRange(maxCwpCraneList, maxCwpBayList);
-                for (CWPBay cwpBay : maxCwpBayList) {
+                for (CWPBay cwpBay : maxCwpBayList) { //发生重新分块时，才设置成true
                     cwpBay.setMaxRoadBay(true);
                 }
             }

@@ -1,9 +1,11 @@
 package com.cwp.single.cwp.process;
 
 import com.cwp.entity.CWPBay;
+import com.cwp.entity.CWPConfiguration;
 import com.cwp.entity.CWPCrane;
 import com.cwp.log.CWPLogger;
 import com.cwp.log.CWPLoggerFactory;
+import com.cwp.single.cwp.cwpvessel.CWPData;
 import com.cwp.single.cwp.dp.DPCraneSelectBay;
 import com.cwp.single.cwp.dp.DPPair;
 import com.cwp.single.cwp.dp.DPResult;
@@ -139,4 +141,19 @@ class AutoDelCraneMethod {
         return cwpCraneList;
     }
 
+    static void analyzeMaxRoadCrane(CWPCrane maxCwpCrane, CWPData cwpData) {
+        CWPConfiguration cwpConfiguration = cwpData.getVesselVisit().getCwpConfiguration();
+        CWPBay cwpBayFrom = cwpData.getCWPBayByBayNo(maxCwpCrane.getDpWorkBayNoFrom());
+        CWPBay cwpBayTo = cwpData.getCWPBayByBayNo(maxCwpCrane.getDpWorkBayNoTo());
+        if (cwpBayFrom != null) {
+            if (cwpBayFrom.isDividedBay() && maxCwpCrane.getDpWorkTimeFrom() > cwpConfiguration.getCraneMeanEfficiency()) {
+                cwpBayFrom.setDividedBay(false);
+            }
+        }
+        if (cwpBayTo != null) {
+            if (cwpBayTo.isDividedBay() && maxCwpCrane.getDpWorkTimeTo() > cwpConfiguration.getCraneMeanEfficiency()) {
+                cwpBayTo.setDividedBay(false);
+            }
+        }
+    }
 }
