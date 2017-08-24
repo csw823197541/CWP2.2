@@ -75,12 +75,16 @@ public class CWPProcess {
         analyzeCrane(cwpCranes, cwpBays);
 
         //桥机分块方法
-        divideCraneMoveRange(cwpCranes, cwpBays);
+        boolean divideByMaxRoad = DivideMethod.divideCraneMoveRangeByMaxRoad(cwpCranes, cwpBays, methodParameter, cwpData);
+        if (!divideByMaxRoad) {
+            DivideMethod.divideCraneMoveRange(cwpCranes, cwpBays, cwpData);
+        }
         LogPrinter.printCraneDividedInfo(cwpCranes);
 
         //桥机分块后，需要分析桥机是否跨驾驶台、烟囱等，现有队列中的有效桥机是否满足船期、分割舱的分割量还需要重新分割
-        if (analyzeAndDivideCraneMoveRangeAgain(cwpCranes, cwpBays))
+        if (analyzeAndDivideCraneMoveRangeAgain(cwpCranes, cwpBays)) {
             LogPrinter.printCraneDividedInfo(cwpCranes);
+        }
 
         //初始化DPCraneSelectBays这个List
         PublicMethod.initDpCraneSelectBayWorkTime(cwpCranes, cwpBays, dpCraneSelectBays);
@@ -243,16 +247,6 @@ public class CWPProcess {
         //桥机物理移动范围
     }
 
-    private void divideCraneMoveRange(List<CWPCrane> cwpCranes, List<CWPBay> cwpBays) {
-        int maxCraneNum = PublicMethod.getMaxCraneNum(cwpBays, cwpData);
-        List<CWPCrane> cwpCraneList = PublicMethod.getAvailableCraneList(cwpCranes); //非维修桥机
-        if (maxCraneNum == cwpCraneList.size()) {
-            DivideMethod.divideCraneMoveRangeWithMaxCraneNum(cwpCraneList, cwpBays, cwpData);
-        } else {
-            DivideMethod.divideCraneMoveRangeByCurTotalWorkTime(cwpCraneList, cwpBays, cwpData);
-        }
-    }
-
     private boolean analyzeAndDivideCraneMoveRangeAgain(List<CWPCrane> cwpCranes, List<CWPBay> cwpBays) {
         List<CWPMachine> cwpMachines = cwpData.getAllMachines();
         boolean hasCraneThroughMachine = false;
@@ -313,7 +307,7 @@ public class CWPProcess {
 
         //判断是否有桥机加入作业或进入维修状态，对桥机进行重新分块
         if (cwpData.getCraneCanWorkNow() || cwpData.getCraneCanNotWorkNow()) {
-            divideCraneMoveRange(cwpCranes, cwpBays);
+            DivideMethod.divideCraneMoveRange(cwpCranes, cwpBays, cwpData);
         }
 
         //改变桥机作业范围
@@ -511,7 +505,7 @@ public class CWPProcess {
             if (!cwpCrane.isMaintainNow() && !cwpCrane.isThroughMachineNow()) {
                 //TODO:过驾驶台的桥机DP不考虑作业
                 if (cwpBay.getDpAvailableWorkTime() > 0) {
-                    if (methodParameter.getKeepMaxRoadWork()) {
+                    if (methodParameter.getKeepMaxRoadBay()) {
                         if (cwpBay.getMaxRoadBay()) {
                             dpCraneSelectBay.addDpWorkTime(cwpConfiguration.getKeepSelectedBayWorkTime());
 //                            Integer bayNo = PublicMethod.getSelectBayNoInDpResult(cwpCrane.getCraneNo(), dpResultLast);
@@ -526,7 +520,7 @@ public class CWPProcess {
                     } else {
                         long workTime = dpCraneSelectBay.getDpWorkTime();
                         //TODO:自己范围以外的量都设为1，是否合理？
-                        setDpWorkTimeOutOfCraneMoveRange(cwpCrane, cwpBay, dpCraneSelectBay, dpCraneSelectBays);
+                        ChangeDpWTMethod.setDpWorkTimeOutOfCraneMoveRange(cwpCrane, cwpBay, dpCraneSelectBay, dpCraneSelectBays, cwpData);
                         //如果桥机移动范围界限正好在大倍位置上，则可以放宽范围到两边的小倍位
                         Integer bayNoFrom = cwpCrane.getDpWorkBayNoFrom();
                         Integer bayNoTo = cwpCrane.getDpWorkBayNoTo();
@@ -550,39 +544,14 @@ public class CWPProcess {
         }
     }
 
-    private void setDpWorkTimeOutOfCraneMoveRange(CWPCrane cwpCrane, CWPBay cwpBay, DPCraneSelectBay dpCraneSelectBay, List<DPCraneSelectBay> dpCraneSelectBays) {
-        Long hatchId = cwpBay.getHatchId();
-        CWPHatch cwpHatch = cwpData.getCWPHatchByHatchId(hatchId);
-        List<Integer> bayNos = cwpHatch.getBayNos();
-        List<Long> dpWTList = new ArrayList<>();
-        for (Integer bayNo : bayNos) {
-            DPCraneSelectBay dpCraneSelectBay1 = DPCraneSelectBay.getDpCraneSelectBayByPair(dpCraneSelectBays, new DPPair<>(cwpCrane.getCraneNo(), bayNo));
-            if (dpCraneSelectBay1 != null && dpCraneSelectBay1.getDpWorkTimeToDpAfter() > 0) {
-                dpWTList.add(dpCraneSelectBay1.getDpWorkTimeToDpAfter());
-            }
-        }
-        Collections.sort(dpWTList, new Comparator<Long>() {
-            @Override
-            public int compare(Long o1, Long o2) {
-                return o2.compareTo(o1);
-            }
-        });
-        for (int i = 0; i < dpWTList.size(); i++) {
-            if (dpWTList.get(i).equals(dpCraneSelectBay.getDpWorkTime())) {
-                dpCraneSelectBay.setDpWorkTime(3L - i);
-                break;
-            }
-        }
-    }
-
     private DPResult analyzeCurDpResult(DP dp, DPResult dpResult, DPResult dpResultLast, List<CWPCrane> cwpCranes, List<CWPBay> cwpBays, List<DPCraneSelectBay> dpCraneSelectBays) {
         int curDpCraneNum = dpResult.getDpTraceBack().size();
         if (curDpCraneNum == 0) {
             return dpResult;
         }
         List<CWPCrane> availableCwpCraneList = PublicMethod.getAvailableCraneList(cwpCranes);
-        List<CWPCrane> reducedCraneList = PublicMethod.getReducedCranesInDpResult(availableCwpCraneList, dpResult);
-        int reducedCraneNum = reducedCraneList.size(); //排除了维修、故障、正在过驾驶台的桥机
+        List<CWPCrane> unselectedCraneList = PublicMethod.getUnselectedCranesInDpResult(availableCwpCraneList, dpResult);
+        int reducedCraneNum = unselectedCraneList.size(); //排除了维修、故障、正在过驾驶台的桥机
         if (reducedCraneNum > 0) {
             cwpLogger.logInfo("The current DP reduced number of crane is " + reducedCraneNum);
         }
@@ -724,66 +693,84 @@ public class CWPProcess {
         List<CWPBay> maxCwpBayList = AutoDelCraneMethod.getMaxWorkTimeCWPBayList(cwpConfiguration.getCraneSafeSpan(), cwpBays);
         if (maxCwpBayList.size() == 0) {
             cwpLogger.logInfo("The max road is not key bay.");
-            return;
+        } else {
+            LogPrinter.printMaxCwpBay(maxCwpBayList);
+            List<CWPBay> leftCwpBayList = AutoDelCraneMethod.getLeftCwpBayList(cwpBays, maxCwpBayList);
+            List<CWPBay> rightCwpBayList = AutoDelCraneMethod.getRightCwpBayList(cwpBays, maxCwpBayList);
+            long maxWorkTime = PublicMethod.getCurTotalWorkTime(maxCwpBayList);
+            long leftAllWorkTime = PublicMethod.getCurTotalWorkTime(leftCwpBayList);
+            long rightAllWorkTime = PublicMethod.getCurTotalWorkTime(rightCwpBayList);
+            //计算上次DP选择哪部桥机作业剩余时间量最大的作业路
+            String maxCwpCraneNo = AutoDelCraneMethod.getMaxCwpCraneNoInMaxCwpBayList(dpResultLast, maxCwpBayList);
+            if (maxCwpCraneNo != null) {
+                cwpLogger.logInfo("The max road is selected by crane(No:" + maxCwpCraneNo + ") in last DP.");
+                CWPCrane maxCwpCrane = cwpData.getCWPCraneByCraneNo(maxCwpCraneNo);
+                List<CWPCrane> leftCwpCraneList = AutoDelCraneMethod.getLeftCwpCraneList(availableCwpCraneList, maxCwpCrane);
+                List<CWPCrane> rightCwpCraneList = AutoDelCraneMethod.getRightCwpCraneList(availableCwpCraneList, maxCwpCrane);
+                //根据公式计算左右两边是否减桥机、减几部桥机
+                long leftExpectWorkTime = maxWorkTime * leftCwpCraneList.size();
+                long rightExpectWorkTime = maxWorkTime * rightCwpCraneList.size();
+                double leftResidue = (double) (leftExpectWorkTime - leftAllWorkTime) / (double) maxWorkTime;
+                double rightResidue = (double) (rightExpectWorkTime - rightAllWorkTime) / (double) maxWorkTime;
+                cwpLogger.logInfo("The left reduced number of crane is: " + leftResidue);
+                cwpLogger.logInfo("The right reduced number of crane is: " + rightResidue);
+                //对桥机作业范围进行重新分块
+                boolean divideCraneMoveRange = false;
+                List<CWPCrane> curCwpCranes = cwpData.getAllCranes();
+                leftCwpCraneList = AutoDelCraneMethod.getLeftCwpCraneList(curCwpCranes, maxCwpCrane);
+                if (leftResidue >= 1.0 && rightResidue >= 0.0) {
+                    boolean delCrane = delCraneFromLeftAndRight("left", leftResidue, leftCwpCraneList, dpResultLast, leftCwpBayList, cwpBays);
+                    if (delCrane || leftDivide) {
+                        curCwpCranes = cwpData.getAllCranes();
+                        leftCwpCraneList = AutoDelCraneMethod.getLeftCwpCraneList(curCwpCranes, maxCwpCrane);
+                        PublicMethod.clearCraneAndBay(leftCwpCraneList, leftCwpBayList);
+                        DivideMethod.divideCraneMoveRange(leftCwpCraneList, leftCwpBayList, cwpData);
+                        divideCraneMoveRange = true;
+                        leftDivide = false;
+                    }
+                }
+                rightCwpCraneList = AutoDelCraneMethod.getRightCwpCraneList(curCwpCranes, maxCwpCrane);
+                if (rightResidue >= 1.0 && leftResidue >= 0.0) {
+                    boolean delCrane = delCraneFromLeftAndRight("right", rightResidue, rightCwpCraneList, dpResultLast, rightCwpBayList, cwpBays);
+                    if (delCrane || rightDivide) {
+                        curCwpCranes = cwpData.getAllCranes();
+                        rightCwpCraneList = AutoDelCraneMethod.getRightCwpCraneList(curCwpCranes, maxCwpCrane);
+                        PublicMethod.clearCraneAndBay(rightCwpCraneList, rightCwpBayList);
+                        DivideMethod.divideCraneMoveRange(rightCwpCraneList, rightCwpBayList, cwpData);
+                        divideCraneMoveRange = true;
+                        rightDivide = false;
+                    }
+                }
+                if (divideCraneMoveRange) {
+                    List<CWPCrane> maxCwpCraneList = new ArrayList<>();
+                    maxCwpCraneList.add(maxCwpCrane);
+                    //判断一下最大倍位的桥机之前是否需要作业分割倍，将分割倍位标记置为false，说明该桥机不在帮忙作业分割倍位了
+                    AutoDelCraneMethod.analyzeMaxRoadCrane(maxCwpCrane, cwpData);
+                    PublicMethod.clearCraneAndBay(maxCwpCraneList, maxCwpBayList);
+                    DivideMethod.divideCraneMoveRange(maxCwpCraneList, maxCwpBayList, cwpData);
+                    for (CWPBay cwpBay : maxCwpBayList) { //发生重新分块时，才设置成true
+                        cwpBay.setMaxRoadBay(true);
+                    }
+                }
+            }
         }
-        LogPrinter.printMaxCwpBay(maxCwpBayList);
+        //根据当前时刻最多能放下的桥机数，决定是否减桥机
+        int maxCraneNum = PublicMethod.getMaxCraneNum(cwpBays, cwpData);
+        int redundantCraneNum = availableCwpCraneList.size() - maxCraneNum; //需要减少的桥机数目
+        if (redundantCraneNum > 0) {
+            cwpLogger.logInfo("It need to delete craneNum: " + redundantCraneNum);
+            List<CWPCrane> unselectedCraneList = PublicMethod.getUnselectedCranesInDpResult(availableCwpCraneList, dpResultLast); //上次Dp未选中的桥机（目前认为一定是两边的桥机）
+            if (redundantCraneNum == unselectedCraneList.size()) { //最好解决，将上次未选中的桥机减去即可
+                cwpLogger.logInfo("The number of unselected crane is the same as redundant cranes in lastDpResult.");
+                for (CWPCrane cwpCrane : unselectedCraneList) {
+                    cwpData.removeCWPCrane(cwpCrane);
+                }
+                List<CWPCrane> curCwpCranes = cwpData.getAllCranes();
+                computeCurrentWorkTime(curCwpCranes, cwpBays);
+                PublicMethod.clearCraneAndBay(curCwpCranes, cwpBays);
+                DivideMethod.divideCraneMoveRange(curCwpCranes, cwpBays, cwpData);
+            } else if (redundantCraneNum > unselectedCraneList.size()) {
 
-        List<CWPBay> leftCwpBayList = AutoDelCraneMethod.getLeftCwpBayList(cwpBays, maxCwpBayList);
-        List<CWPBay> rightCwpBayList = AutoDelCraneMethod.getRightCwpBayList(cwpBays, maxCwpBayList);
-        long maxWorkTime = PublicMethod.getCurTotalWorkTime(maxCwpBayList);
-        long leftAllWorkTime = PublicMethod.getCurTotalWorkTime(leftCwpBayList);
-        long rightAllWorkTime = PublicMethod.getCurTotalWorkTime(rightCwpBayList);
-        //计算上次DP选择哪部桥机作业剩余时间量最大的作业路
-        String maxCwpCraneNo = AutoDelCraneMethod.getMaxCwpCraneNoInMaxCwpBayList(dpResultLast, maxCwpBayList);
-        if (maxCwpCraneNo != null) {
-            cwpLogger.logInfo("The max road is selected by crane(No:" + maxCwpCraneNo + ") in last DP.");
-            CWPCrane maxCwpCrane = cwpData.getCWPCraneByCraneNo(maxCwpCraneNo);
-            List<CWPCrane> leftCwpCraneList = AutoDelCraneMethod.getLeftCwpCraneList(availableCwpCraneList, maxCwpCrane);
-            List<CWPCrane> rightCwpCraneList = AutoDelCraneMethod.getRightCwpCraneList(availableCwpCraneList, maxCwpCrane);
-            //根据公式计算左右两边是否减桥机、减几部桥机
-            long leftExpectWorkTime = maxWorkTime * leftCwpCraneList.size();
-            long rightExpectWorkTime = maxWorkTime * rightCwpCraneList.size();
-            double leftResidue = (double) (leftExpectWorkTime - leftAllWorkTime) / (double) maxWorkTime;
-            double rightResidue = (double) (rightExpectWorkTime - rightAllWorkTime) / (double) maxWorkTime;
-            cwpLogger.logInfo("The left reduced number of crane is: " + leftResidue);
-            cwpLogger.logInfo("The right reduced number of crane is: " + rightResidue);
-            //对桥机作业范围进行重新分块
-            boolean divideCraneMoveRange = false;
-            List<CWPCrane> curCwpCranes = cwpData.getAllCranes();
-            leftCwpCraneList = AutoDelCraneMethod.getLeftCwpCraneList(curCwpCranes, maxCwpCrane);
-            if (leftResidue >= 1.0 && rightResidue >= 0.0) {
-                boolean delCrane = delCraneFromLeftAndRight("left", leftResidue, leftCwpCraneList, dpResultLast, leftCwpBayList, cwpBays);
-                if (delCrane || leftDivide) {
-                    curCwpCranes = cwpData.getAllCranes();
-                    leftCwpCraneList = AutoDelCraneMethod.getLeftCwpCraneList(curCwpCranes, maxCwpCrane);
-                    PublicMethod.clearCraneAndBay(leftCwpCraneList, leftCwpBayList);
-                    divideCraneMoveRange(leftCwpCraneList, leftCwpBayList);
-                    divideCraneMoveRange = true;
-                    leftDivide = false;
-                }
-            }
-            rightCwpCraneList = AutoDelCraneMethod.getRightCwpCraneList(curCwpCranes, maxCwpCrane);
-            if (rightResidue >= 1.0 && leftResidue >= 0.0) {
-                boolean delCrane = delCraneFromLeftAndRight("right", rightResidue, rightCwpCraneList, dpResultLast, rightCwpBayList, cwpBays);
-                if (delCrane || rightDivide) {
-                    curCwpCranes = cwpData.getAllCranes();
-                    rightCwpCraneList = AutoDelCraneMethod.getRightCwpCraneList(curCwpCranes, maxCwpCrane);
-                    PublicMethod.clearCraneAndBay(rightCwpCraneList, rightCwpBayList);
-                    divideCraneMoveRange(rightCwpCraneList, rightCwpBayList);
-                    divideCraneMoveRange = true;
-                    rightDivide = false;
-                }
-            }
-            if (divideCraneMoveRange) {
-                List<CWPCrane> maxCwpCraneList = new ArrayList<>();
-                maxCwpCraneList.add(maxCwpCrane);
-                //判断一下最大倍位的桥机之前是否需要作业分割倍，将分割倍位标记置为false，说明该桥机不在帮忙作业分割倍位了
-                AutoDelCraneMethod.analyzeMaxRoadCrane(maxCwpCrane, cwpData);
-                PublicMethod.clearCraneAndBay(maxCwpCraneList, maxCwpBayList);
-                divideCraneMoveRange(maxCwpCraneList, maxCwpBayList);
-                for (CWPBay cwpBay : maxCwpBayList) { //发生重新分块时，才设置成true
-                    cwpBay.setMaxRoadBay(true);
-                }
             }
         }
     }
