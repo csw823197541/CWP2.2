@@ -56,6 +56,8 @@ public class VesselVisitManager {
                     Long cntWorkTime = smartVesselContainerInfo.getContainerWorkInterval();//单位秒
                     String cntHeight = smartVesselContainerInfo.getCntHeightDesc();//箱子具体高度
                     Double weight = smartVesselContainerInfo.getWeight();
+                    String recycleWiFlag = smartVesselContainerInfo.getRecycleWiFlag();
+                    String craneNo = smartVesselContainerInfo.getCraneNo();
                     throughFlag = "N".equals(throughFlag) ? CWPDomain.THROUGH_NO : CWPDomain.THROUGH_YES;
                     MOContainer moContainer = new MOContainer(vLocation, type, size, dlType);
                     if (CWPDomain.THROUGH_NO.equals(throughFlag)) { //非过境箱
@@ -66,9 +68,22 @@ public class VesselVisitManager {
                         moContainer.setCntWorkTime(cntWorkTime);
                         moContainer.setWeightKg(weight);
                         moContainer.setVpcCntrId(vpcCntrId);
+                        moContainer.setRecycleWiFlag(recycleWiFlag);
+                        moContainer.setCraneNo(craneNo);
+                        moContainer.setWorkingStartTime(smartVesselContainerInfo.getWorkingStartTime());
+                        moContainer.setWorkingEndTime(smartVesselContainerInfo.getWorkingEndTime());
                         String manualFlag = smartVesselContainerInfo.getManualFlag();
-                        if ("Y".equals(manualFlag)) { //人工指定工艺
+                        String cwoManualWorkflow = smartVesselContainerInfo.getCwoManualWorkflow();
+                        if ("Y".equals(manualFlag) || "Y".equals(cwoManualWorkflow)) { //人工指定工艺
                             moContainer.setWorkFlow(workFlow);
+                        }
+                        //重排的时候，锁定箱子的计划要排在最后
+                        String cwoManualWi = smartVesselContainerInfo.getCwoManualWi();
+                        if ("Y".equals(cwoManualWi)) {
+                            CWPStowageLockLocation cwpStowageLockLocation = new CWPStowageLockLocation();
+                            cwpStowageLockLocation.setHatchId(hatchId);
+                            cwpStowageLockLocation.setvLocation(vLocation);
+                            vesselVisit.addCWPStowageLockLocation(cwpStowageLockLocation);
                         }
                         try {
                             MOSlotPosition moSlotPosition = new MOSlotPosition(vLocation);
@@ -77,6 +92,17 @@ public class VesselVisitManager {
                             e.printStackTrace();
                             cwpLogger.logError("输入数据不正确: 解析船箱位(" + vLocation + ")错误");
                         }
+                    }
+                }
+            }
+            //读取锁定船箱位信息
+            for (SmartStowageLockLocationsInfo smartStowageLockLocationsInfo : smartCwpImportData.getSmartStowageLockLocationsInfoList()) {
+                if (smartStowageLockLocationsInfo.getBerthId().equals(berthId)) {
+                    if ("L".equals(smartStowageLockLocationsInfo.getLduldfg())) {
+                        CWPStowageLockLocation cwpStowageLockLocation = new CWPStowageLockLocation();
+                        cwpStowageLockLocation.setHatchId(smartStowageLockLocationsInfo.getHatchId());
+                        cwpStowageLockLocation.setvLocation(smartStowageLockLocationsInfo.getvLocation());
+                        vesselVisit.addCWPStowageLockLocation(cwpStowageLockLocation);
                     }
                 }
             }
@@ -157,6 +183,23 @@ public class VesselVisitManager {
                 cwpCraneMaintainPlan = (CWPCraneMaintainPlan) BeanCopy.copyBean(smartCraneMaintainPlanInfo, cwpCraneMaintainPlan);
                 cwpLogger.logInfo("桥机(No:" + cwpCraneMaintainPlan.getCraneNo() + ")需要维修");
                 vesselVisit.addCWPCraneMaintainPlan(cwpCraneMaintainPlan);
+            }
+            //读取桥机物理移动范围
+            if (smartCwpImportData.getSmartCraneMoveRangeInfoList().size() == 0) {
+                cwpLogger.logInfo("输入数据中没有桥机物理移动范围信息");
+            }
+            for (SmartCraneMoveRangeInfo smartCraneMoveRangeInfo : smartCwpImportData.getSmartCraneMoveRangeInfoList()) {
+                if (berthId.equals(smartCraneMoveRangeInfo.getBerthId())) {
+//                    Validator.notNull("桥机(craneNo: " + smartCraneMoveRangeInfo.getCraneNo() + ")物理移动范围限制起始倍位", smartCraneMoveRangeInfo.getStartBayNo());
+//                    Validator.notNull("桥机(craneNo: " + smartCraneMoveRangeInfo.getCraneNo() + ")物理移动范围限制终止倍位", smartCraneMoveRangeInfo.getEndBayNo());
+                    if (smartCraneMoveRangeInfo.getStartBayNo() != null && smartCraneMoveRangeInfo.getEndBayNo() != null) {
+                        if (!"".equals(smartCraneMoveRangeInfo.getStartBayNo()) && !"".equals(smartCraneMoveRangeInfo.getEndBayNo())) {
+                            CWPCraneMoveRange cwpCraneMoveRange = new CWPCraneMoveRange();
+                            cwpCraneMoveRange = (CWPCraneMoveRange) BeanCopy.copyBean(smartCraneMoveRangeInfo, cwpCraneMoveRange);
+                            vesselVisit.addCWPCraneMoveRange(cwpCraneMoveRange);
+                        }
+                    }
+                }
             }
             //读取船舶机械信息
             if (smartCwpImportData.getSmartVesselMachinesInfoList().size() == 0) {
@@ -250,7 +293,7 @@ public class VesselVisitManager {
         cwpConfiguration.setDividedBayWorkTime(dividedBayWorkTime);
         //保持在上次作业的倍位作业时间量增加参数，600分钟
         Long keepBayWorkTime = smartCwpConfigurationInfo.getKeepSelectedBayWorkTime();
-        keepBayWorkTime = keepBayWorkTime != null ? keepBayWorkTime * 600 : CWPDefaultValue.keepSelectedBayWorkTime;
+        keepBayWorkTime = keepBayWorkTime != null ? keepBayWorkTime * 60 : CWPDefaultValue.keepSelectedBayWorkTime;
         cwpConfiguration.setKeepSelectedBayWorkTime(keepBayWorkTime);
         //故障箱处理时间，30分钟
         Long breakDownCntTime = smartCwpConfigurationInfo.getBreakDownCntTime();
@@ -264,6 +307,19 @@ public class VesselVisitManager {
         Long autoDelCraneAmount = smartCwpConfigurationInfo.getAutoDelCraneAmount();
         autoDelCraneAmount = autoDelCraneAmount != null ? autoDelCraneAmount : CWPDefaultValue.autoDelCraneAmount;
         cwpConfiguration.setAutoDelCraneAmount(autoDelCraneAmount);
+        Boolean keyBay = smartCwpConfigurationInfo.getKeyBay();
+        keyBay = keyBay != null ? keyBay : CWPDefaultValue.keyBay;
+        cwpConfiguration.setKeyBay(keyBay);
+        Boolean divideBay = smartCwpConfigurationInfo.getDivideBay();
+        divideBay = divideBay != null ? divideBay : CWPDefaultValue.dividedBay;
+        cwpConfiguration.setDivideBay(divideBay);
+        Boolean divideByMaxRoad = smartCwpConfigurationInfo.getDivideByMaxRoad();
+        divideByMaxRoad = divideByMaxRoad != null ? divideByMaxRoad : CWPDefaultValue.divideByMaxRoad;
+        cwpConfiguration.setDivideByMaxRoad(divideByMaxRoad);
+        //优先作业装船倍位参数
+        Integer loadFirstParam = smartCwpConfigurationInfo.getLoadFirstParam();
+        loadFirstParam = loadFirstParam != null ? loadFirstParam : CWPDefaultValue.loadFirstParam;
+        cwpConfiguration.setLoadFirstParam(loadFirstParam);
     }
 
     public MOVessel buildMOVessel(VesselVisit vesselVisit, SmartCwpImportData smartCwpImportData) {

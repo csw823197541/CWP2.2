@@ -2,9 +2,14 @@ package com.cwp.single.cwp.cwpvessel;
 
 import com.cwp.allvessel.manager.VesselVisit;
 import com.cwp.entity.CWPBay;
+import com.cwp.entity.CWPConfiguration;
 import com.cwp.entity.CWPCrane;
 import com.cwp.entity.CWPMachine;
+import com.cwp.single.cwp.dp.DPCraneSelectBay;
+import com.cwp.single.cwp.dp.DPResult;
+import com.cwp.single.cwp.process.MethodParameter;
 import com.cwp.single.cwp.processorder.CWPHatch;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import javax.swing.text.StyledEditorKit;
 import java.util.*;
@@ -16,11 +21,16 @@ import java.util.*;
 public class CWPData {
 
     private VesselVisit vesselVisit; //船舶访问信息
+    private CWPConfiguration cwpConfiguration;
 
     private Map<Integer, CWPBay> cwpBayMap;
     private Map<String, CWPCrane> cwpCraneMap;
     private Map<Long, CWPHatch> cwpHatchMap;
     private Map<Double, CWPMachine> cwpMachineMap;//驾驶台、烟囱等机械信息<位置, 机械信息>
+
+    private DPResult dpResult;
+    private List<DPCraneSelectBay> dpCraneSelectBays;
+    private MethodParameter methodParameter;
 
     private Boolean doWorkCwp;
     private Boolean doPlanCwp;
@@ -30,22 +40,63 @@ public class CWPData {
     private Integer initMaxCraneNum;
     private Integer initMinCraneNum;
 
-    private Long cwpStartTime;
+    private Long cwpStartTime; //开始排计划的初始时间
     private Long cwpCurrentTime;//cwp当前作业时间,全局时间
 
     private Boolean craneBreakdownNow;//是否现在有桥机发生故障
     private Boolean craneCanWorkNow;//是否现在有桥机可以正常工作（如维修完毕）
     private Boolean craneCanNotWorkNow;//是否现在有桥机不能正常工作（如进入维修状态）
 
+    private Boolean leftDivide;
+    private Boolean rightDivide;
+
     public CWPData(VesselVisit vesselVisit) {
         this.vesselVisit = vesselVisit;
+        cwpConfiguration = vesselVisit.getCwpConfiguration();
         cwpBayMap = new HashMap<>();
         cwpCraneMap = new HashMap<>();
         cwpHatchMap = new HashMap<>();
         cwpMachineMap = new HashMap<>();
+        dpResult = new DPResult();
+        dpCraneSelectBays = new ArrayList<>();
+        methodParameter = new MethodParameter();
         craneBreakdownNow = false;
         craneCanWorkNow = false;
         craneCanNotWorkNow = false;
+        leftDivide = true;
+        rightDivide = true;
+    }
+
+    public Boolean getLeftDivide() {
+        return leftDivide;
+    }
+
+    public void setLeftDivide(Boolean leftDivide) {
+        this.leftDivide = leftDivide;
+    }
+
+    public Boolean getRightDivide() {
+        return rightDivide;
+    }
+
+    public void setRightDivide(Boolean rightDivide) {
+        this.rightDivide = rightDivide;
+    }
+
+    public CWPConfiguration getCwpConfiguration() {
+        return cwpConfiguration;
+    }
+
+    public DPResult getDpResult() {
+        return dpResult;
+    }
+
+    public List<DPCraneSelectBay> getDpCraneSelectBays() {
+        return dpCraneSelectBays;
+    }
+
+    public MethodParameter getMethodParameter() {
+        return methodParameter;
     }
 
     public Boolean getDoWorkCwp() {
@@ -250,13 +301,4 @@ public class CWPData {
         return null;
     }
 
-    public boolean isLastBayNo(Integer bayNo) {
-        List<CWPBay> cwpBayList = this.getAllBays();
-        return cwpBayList.size() > 0 && cwpBayList.get(cwpBayList.size() - 1).getBayNo().equals(bayNo);
-    }
-
-    public boolean isFirstBayNo(Integer bayNo) {
-        List<CWPBay> cwpBayList = this.getAllBays();
-        return cwpBayList.size() > 0 && cwpBayList.get(0).getBayNo().equals(bayNo);
-    }
 }

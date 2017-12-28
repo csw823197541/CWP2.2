@@ -1,8 +1,11 @@
 package com.cwp.single.cwp.dp;
 
 import com.cwp.config.CWPDefaultValue;
+import com.cwp.config.CWPDomain;
 import com.cwp.entity.CWPBay;
 import com.cwp.entity.CWPCrane;
+import com.cwp.single.cwp.cwpvessel.CWPData;
+import com.cwp.utils.CalculateUtil;
 import com.cwp.utils.LogPrinter;
 
 import java.util.List;
@@ -13,7 +16,9 @@ import java.util.List;
  */
 public class DP {
 
-    public DPResult cwpKernel(List<CWPCrane> cwpCranes, List<CWPBay> cwpBays, List<DPCraneSelectBay> dpCraneSelectBays) {
+    public DPResult cwpKernel(List<CWPCrane> cwpCranes, List<CWPBay> cwpBays, List<DPCraneSelectBay> dpCraneSelectBays, CWPData cwpData) {
+
+        double craneSafeSpan = 2 * cwpData.getVesselVisit().getCwpConfiguration().getCraneSafeSpan();
 
         int craneNum = cwpCranes.size();
         int bayNum = cwpBays.size();
@@ -97,7 +102,8 @@ public class DP {
                     if (dpCraneSelectBay.getDpWorkTime() > 0 || unusableCrane(cwpCrane) || i == craneNum - 1) { //the last crane???
                         DPResult cur_dp = new DPResult();
                         int k = j;
-                        while (k >= 0 && cwpBay.getWorkPosition() - cwpBays.get(k).getWorkPosition() < 2 * CWPDefaultValue.craneSafeSpan) {
+//                        double distance = CalculateUtil.sub(cwpBay.getWorkPosition(), cwpBays.get(k).getWorkPosition());
+                        while (k >= 0 && CalculateUtil.sub(cwpBay.getWorkPosition(), cwpBays.get(k).getWorkPosition()) < craneSafeSpan) {
                             k--;
                         }
                         if (k < 0) {
