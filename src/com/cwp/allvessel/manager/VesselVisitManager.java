@@ -59,6 +59,7 @@ public class VesselVisitManager {
                     String recycleWiFlag = smartVesselContainerInfo.getRecycleWiFlag();
                     String craneNo = smartVesselContainerInfo.getCraneNo();
                     throughFlag = "N".equals(throughFlag) ? CWPDomain.THROUGH_NO : CWPDomain.THROUGH_YES;
+                    String directCntFlag = "Y".equals(smartVesselContainerInfo.getDirectCntFlag()) ? CWPDomain.Y : CWPDomain.N;
                     MOContainer moContainer = new MOContainer(vLocation, type, size, dlType);
                     if (CWPDomain.THROUGH_NO.equals(throughFlag)) { //非过境箱
                         moContainer.setThroughFlag(throughFlag);
@@ -72,6 +73,7 @@ public class VesselVisitManager {
                         moContainer.setCraneNo(craneNo);
                         moContainer.setWorkingStartTime(smartVesselContainerInfo.getWorkingStartTime());
                         moContainer.setWorkingEndTime(smartVesselContainerInfo.getWorkingEndTime());
+                        moContainer.setDirectCntFlag(directCntFlag);
                         String manualFlag = smartVesselContainerInfo.getManualFlag();
                         String cwoManualWorkflow = smartVesselContainerInfo.getCwoManualWorkflow();
                         if ("Y".equals(manualFlag) || "Y".equals(cwoManualWorkflow)) { //人工指定工艺
@@ -83,6 +85,7 @@ public class VesselVisitManager {
                             CWPStowageLockLocation cwpStowageLockLocation = new CWPStowageLockLocation();
                             cwpStowageLockLocation.setHatchId(hatchId);
                             cwpStowageLockLocation.setvLocation(vLocation);
+                            cwpStowageLockLocation.setLduldfg(dlType);
                             vesselVisit.addCWPStowageLockLocation(cwpStowageLockLocation);
                         }
                         try {
@@ -102,6 +105,7 @@ public class VesselVisitManager {
                         CWPStowageLockLocation cwpStowageLockLocation = new CWPStowageLockLocation();
                         cwpStowageLockLocation.setHatchId(smartStowageLockLocationsInfo.getHatchId());
                         cwpStowageLockLocation.setvLocation(smartStowageLockLocationsInfo.getvLocation());
+                        cwpStowageLockLocation.setLduldfg(smartStowageLockLocationsInfo.getLduldfg());
                         vesselVisit.addCWPStowageLockLocation(cwpStowageLockLocation);
                     }
                 }

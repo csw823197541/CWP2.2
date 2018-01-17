@@ -440,16 +440,20 @@ public class ChangeDpWTMethod {
                                 if (bayNoCur != null) {
                                     CWPBay cwpBayCur = cwpData.getCWPBayByBayNo(bayNoCur);
                                     setCraneSelectSteppingBay(cwpCraneLast, cwpBayLast, cwpData); //该桥机继续选择小倍位作业下去
-                                    String side = cwpBayCur.getWorkPosition().compareTo(cwpBayLast.getWorkPosition()) > 0 ? CWPDomain.LEFT : CWPDomain.RIGHT;
-                                    CWPCrane cwpCraneSide = PublicMethod.getSideCWPCrane(side, craneNo, cwpData);
-                                    if (cwpCraneSide != null) {
-                                        Integer bayNoSelect = PublicMethod.getSelectBayNoInDpResult(cwpCraneSide.getCraneNo(), dpResult);
-                                        if (bayNoSelect == null) {
-                                            PublicMethod.setCraneSelectNoneBay(cwpCraneSide, dpCraneSelectBays);
-                                            cwpCraneSide.setWorkDone(true);
-                                        } else {
-                                            setCraneWaitState(cwpCraneSide, bayNoSelect, cwpData);
-                                            cwpCraneSide.setWorkDone(true);
+                                    long availableT = cwpBayCur.getDpAvailableWorkTime();
+                                    long waitTime = CWPDefaultValue.waitMove * cwpData.getCwpConfiguration().getCraneMeanEfficiency();
+                                    if (availableT > 0 && availableT == cwpBayCur.getDpCurrentTotalWorkTime() && availableT <= waitTime) {
+                                        String side = cwpBayCur.getWorkPosition().compareTo(cwpBayLast.getWorkPosition()) > 0 ? CWPDomain.LEFT : CWPDomain.RIGHT;
+                                        CWPCrane cwpCraneSide = PublicMethod.getSideCWPCrane(side, craneNo, cwpData);
+                                        if (cwpCraneSide != null) {
+                                            Integer bayNoSelect = PublicMethod.getSelectBayNoInDpResult(cwpCraneSide.getCraneNo(), dpResult);
+                                            if (bayNoSelect == null) {
+                                                PublicMethod.setCraneSelectNoneBay(cwpCraneSide, dpCraneSelectBays);
+                                                cwpCraneSide.setWorkDone(true);
+                                            } else {
+                                                setCraneWaitState(cwpCraneSide, bayNoSelect, cwpData);
+                                                cwpCraneSide.setWorkDone(true);
+                                            }
                                         }
                                     }
                                     changeByLoadSteppingCnt = true;
