@@ -101,7 +101,7 @@ public class VesselVisitManager {
             //读取锁定船箱位信息
             for (SmartStowageLockLocationsInfo smartStowageLockLocationsInfo : smartCwpImportData.getSmartStowageLockLocationsInfoList()) {
                 if (smartStowageLockLocationsInfo.getBerthId().equals(berthId)) {
-                    if ("L".equals(smartStowageLockLocationsInfo.getLduldfg())) {
+                    if ("L".equals(smartStowageLockLocationsInfo.getLduldfg()) && smartStowageLockLocationsInfo.getvLocation() != null) {
                         CWPStowageLockLocation cwpStowageLockLocation = new CWPStowageLockLocation();
                         cwpStowageLockLocation.setHatchId(smartStowageLockLocationsInfo.getHatchId());
                         cwpStowageLockLocation.setvLocation(smartStowageLockLocationsInfo.getvLocation());
@@ -231,6 +231,8 @@ public class VesselVisitManager {
             }
             this.readDefaultConfiguration(smartCwpConfigurationInfo, cwpConfiguration);
             vesselVisit.setCwpConfiguration(cwpConfiguration);
+
+
             cwpLogger.logInfo("CWP船舶访问详细信息创建完成!");
         } catch (Exception e) {
             cwpLogger.logError("创建船舶(berthId:" + berthId + ")访问详细信息过程中发生异常！");
@@ -411,7 +413,22 @@ public class VesselVisitManager {
                 }
             }
             //读取舱盖板信息
-            //...
+            if (smartCwpImportData.getSmartVpsVslHatchcoversInfoList().size() == 0) {
+                cwpLogger.logInfo("输入数据中没有舱盖板信息");
+            }
+            for (SmartVpsVslHatchcoversInfo smartVpsVslHatchcoversInfo : smartCwpImportData.getSmartVpsVslHatchcoversInfoList()) {
+                if (vesselCode.equals(smartVpsVslHatchcoversInfo.getVesselCode())) {
+                    if (smartVpsVslHatchcoversInfo.getHatchFromRowNo() != null && smartVpsVslHatchcoversInfo.getHatchToRowNo() != null && smartVpsVslHatchcoversInfo.getDeckFromRowNo() != null && smartVpsVslHatchcoversInfo.getDeckToRowNo() != null) {
+                        MOHatchCover moHatchCover = new MOHatchCover();
+                        moHatchCover = (MOHatchCover) BeanCopy.copyBean(smartVpsVslHatchcoversInfo, moHatchCover);
+                        moHatchCover.setDeckFromRowNo(Integer.valueOf(smartVpsVslHatchcoversInfo.getDeckFromRowNo()));
+                        moHatchCover.setDeckToRowNo(Integer.valueOf(smartVpsVslHatchcoversInfo.getDeckToRowNo()));
+                        moHatchCover.setHatchFromRowNo(Integer.valueOf(smartVpsVslHatchcoversInfo.getHatchFromRowNo()));
+                        moHatchCover.setHatchToRowNo(Integer.valueOf(smartVpsVslHatchcoversInfo.getHatchToRowNo()));
+                        moVessel.addMOHatchCover(moHatchCover);
+                    }
+                }
+            }
         } catch (Exception e) {
             cwpLogger.logError("创建船舶(vesselCode:" + vesselCode + ")结构信息过程中发生异常!");
             e.printStackTrace();

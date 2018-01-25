@@ -438,10 +438,6 @@ public class CWPProcess {
 
     private boolean finishSearch(int depth, List<CWPCrane> cwpCranes, List<CWPBay> cwpBays) {
         boolean isFinish = true;
-        if (cwpCranes.size() == 0) {
-            cwpLogger.logError("CWP算法没有排完所有箱子的计划，请检查桥机池中信息是否正确（注意桥机开始/结束作业时间信息）！");
-            return true;
-        }
         boolean availableFinish = true;
         CWPConfiguration cwpConfiguration = cwpData.getCwpConfiguration();
         StringBuilder strBuilder = new StringBuilder("bayNo: ");
@@ -456,9 +452,10 @@ public class CWPProcess {
         }
         //当所有可作业量做完，解除锁定船箱位
         if (!isFinish && availableFinish) {
+            cwpLogger.logDebug("-------------开始安排锁住的锁住预留加载CWP计划--------------");
             Map<String, CWPStowageLockLocation> stowageLockLocationMap = cwpData.getVesselVisit().getStowageLockLocationMap();
             for (CWPStowageLockLocation cwpStowageLockLocation : stowageLockLocationMap.values()) {
-                cwpStowageLockLocation.setLockOpen(false);
+                cwpStowageLockLocation.setLockFlag(false);
             }
         }
         int d = 100;
@@ -468,7 +465,12 @@ public class CWPProcess {
             if (depth > d) {
                 cwpLogger.logError("CWP算法没有排完所有箱子的计划，请检查倍位(" + strBuilder.toString() + ")是否存在锁定指令不能作业或者锁定预留加载的情况，该版本算法要求将该箱子下面需要作业的所有箱子一起锁住(如装船整槽锁，舱下有锁舱上必须都锁)！");
                 cwpLogger.logError("CWP算法没有排完所有箱子的计划，或者检查是否合理的设置了桥机的物理行车限制信息！");
+                return true;
             }
+        }
+        if (cwpCranes.size() == 0) {
+            cwpLogger.logError("CWP算法没有排完所有箱子的计划，请检查桥机池中信息是否正确（注意桥机开始/结束作业时间信息）！");
+            return true;
         }
         return isFinish;
     }
