@@ -3,7 +3,6 @@ package com.cwp.allvessel.manager;
 import com.cwp.config.CWPDefaultValue;
 import com.cwp.config.CWPDomain;
 import com.cwp.entity.*;
-import com.cwp.entity.CWPConfiguration;
 import com.cwp.log.CWPLogger;
 import com.cwp.log.CWPLoggerFactory;
 import com.cwp.single.cwp.process.CWPProcess;
@@ -12,6 +11,11 @@ import com.cwp.utils.BeanCopy;
 import com.cwp.utils.Validator;
 import com.shbtos.biz.smart.cwp.pojo.*;
 import com.shbtos.biz.smart.cwp.service.SmartCwpImportData;
+import com.sun.org.apache.xpath.internal.operations.Bool;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Created by csw on 2017/4/19 22:59.
@@ -60,6 +64,7 @@ public class VesselVisitManager {
                     String craneNo = smartVesselContainerInfo.getCraneNo();
                     throughFlag = "N".equals(throughFlag) ? CWPDomain.THROUGH_NO : CWPDomain.THROUGH_YES;
                     String directCntFlag = "Y".equals(smartVesselContainerInfo.getDirectCntFlag()) ? CWPDomain.Y : CWPDomain.N;
+                    String isHeight = "Y".equals(smartVesselContainerInfo.getIsHeight()) ? CWPDomain.Y : CWPDomain.N;
                     MOContainer moContainer = new MOContainer(vLocation, type, size, dlType);
                     if (CWPDomain.THROUGH_NO.equals(throughFlag)) { //非过境箱
                         moContainer.setThroughFlag(throughFlag);
@@ -74,6 +79,7 @@ public class VesselVisitManager {
                         moContainer.setWorkingStartTime(smartVesselContainerInfo.getWorkingStartTime());
                         moContainer.setWorkingEndTime(smartVesselContainerInfo.getWorkingEndTime());
                         moContainer.setDirectCntFlag(directCntFlag);
+                        moContainer.setIsHeight(isHeight);
                         String manualFlag = smartVesselContainerInfo.getManualFlag();
                         String cwoManualWorkflow = smartVesselContainerInfo.getCwoManualWorkflow();
                         if ("Y".equals(manualFlag) || "Y".equals(cwoManualWorkflow)) { //人工指定工艺
@@ -143,6 +149,14 @@ public class VesselVisitManager {
             if (hasVesselCranePool) {//有船舶桥机池
                 Validator.listNotEmpty("桥机池中没有桥机信息", smartCwpImportData.getSmartCranePoolInfoList());
                 CWPCraneVesselPool cwpCraneVesselPool = vesselVisit.getCWPCraneVesselPool();
+                List<String> craneNoList = new ArrayList<>();
+                if (cwpCraneVesselPool.getFirstCraneNos() != null && !"".equals(cwpCraneVesselPool.getFirstCraneNos().trim())) {
+                    String firstCraneNos = cwpCraneVesselPool.getFirstCraneNos();
+                    String[] craneNos = firstCraneNos.split(",");
+                    craneNoList = Arrays.asList(craneNos);
+                } else {
+                    cwpLogger.logInfo("船舶(berthId:" + berthId + ")桥机池中没有指定开始使用的桥机信息！");
+                }
                 boolean hasCrane = false;
                 for (SmartCranePoolInfo smartCranePoolInfo : smartCwpImportData.getSmartCranePoolInfoList()) {
                     if (smartCranePoolInfo.getPoolId() != null) {
@@ -150,6 +164,8 @@ public class VesselVisitManager {
                             hasCrane = true;
                             CWPCranePool cwpCranePool = new CWPCranePool();
                             cwpCranePool = (CWPCranePool) BeanCopy.copyBean(smartCranePoolInfo, cwpCranePool);
+                            Boolean flag = craneNoList.isEmpty() || craneNoList.contains(cwpCranePool.getCraneNo());
+                            cwpCranePool.setFirstCraneFlag(flag);
                             vesselVisit.addCWPCranePool(cwpCranePool);
                             Validator.listNotEmpty("桥机基础数据信息没有", smartCwpImportData.getSmartCraneBaseInfoList());
                             for (SmartCraneBaseInfo smartCraneBaseInfo : smartCwpImportData.getSmartCraneBaseInfoList()) {
@@ -164,7 +180,7 @@ public class VesselVisitManager {
                     }
                 }
                 if (!hasCrane) {
-                    cwpLogger.logError("船舶(berthId:" + berthId + ")虽然设置了桥机池，但是桥机池中没有相应的桥机！");
+
                 }
             } else {
                 cwpLogger.logError("船舶(berthId:" + berthId + ")的桥机池信息没有！");
@@ -187,6 +203,17 @@ public class VesselVisitManager {
                 cwpCraneMaintainPlan = (CWPCraneMaintainPlan) BeanCopy.copyBean(smartCraneMaintainPlanInfo, cwpCraneMaintainPlan);
                 cwpLogger.logInfo("桥机(No:" + cwpCraneMaintainPlan.getCraneNo() + ")需要维修");
                 vesselVisit.addCWPCraneMaintainPlan(cwpCraneMaintainPlan);
+            }
+            //读取加、减桥机信息
+            for (SmartCraneAddOrDelInfo smartCraneAddOrDelInfo : smartCwpImportData.getSmartCraneAddOrDelInfoList()) {
+                if (berthId.equals(smartCraneAddOrDelInfo.getBerthId())) {
+                    if (smartCraneAddOrDelInfo.getAddOrDelDate().getTime() - vesselVisit.getCwpSchedule().getPlanBeginWorkTime().getTime() >= 3600000) {
+                        CWPCraneAddOrDelInfo cwpCraneAddOrDelInfo = new CWPCraneAddOrDelInfo();
+                        cwpCraneAddOrDelInfo = (CWPCraneAddOrDelInfo) BeanCopy.copyBean(smartCraneAddOrDelInfo, cwpCraneAddOrDelInfo);
+                        cwpLogger.logInfo("解析加、减桥机信息");
+                        vesselVisit.addCWPCraneAddOrDelInfo(cwpCraneAddOrDelInfo);
+                    }
+                }
             }
             //读取桥机物理移动范围
             if (smartCwpImportData.getSmartCraneMoveRangeInfoList().size() == 0) {
