@@ -65,6 +65,7 @@ public class VesselVisitManager {
                     throughFlag = "N".equals(throughFlag) ? CWPDomain.THROUGH_NO : CWPDomain.THROUGH_YES;
                     String directCntFlag = "Y".equals(smartVesselContainerInfo.getDirectCntFlag()) ? CWPDomain.Y : CWPDomain.N;
                     String isHeight = "Y".equals(smartVesselContainerInfo.getIsHeight()) ? CWPDomain.Y : CWPDomain.N;
+                    Long cwpBlockId = smartVesselContainerInfo.getCwpBlockId();
                     MOContainer moContainer = new MOContainer(vLocation, type, size, dlType);
                     if (CWPDomain.THROUGH_NO.equals(throughFlag)) { //非过境箱
                         moContainer.setThroughFlag(throughFlag);
@@ -80,6 +81,7 @@ public class VesselVisitManager {
                         moContainer.setWorkingEndTime(smartVesselContainerInfo.getWorkingEndTime());
                         moContainer.setDirectCntFlag(directCntFlag);
                         moContainer.setIsHeight(isHeight);
+                        moContainer.setCwpBlockId(cwpBlockId);
                         String manualFlag = smartVesselContainerInfo.getManualFlag();
                         String cwoManualWorkflow = smartVesselContainerInfo.getCwoManualWorkflow();
                         if ("Y".equals(manualFlag) || "Y".equals(cwoManualWorkflow)) { //人工指定工艺

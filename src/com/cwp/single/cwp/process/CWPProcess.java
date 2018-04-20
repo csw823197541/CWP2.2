@@ -190,7 +190,15 @@ public class CWPProcess {
         int n = 0;
         List<CWPCranePool> cwpCranePools = cwpData.getVesselVisit().getAllCWPCranePools();
         for (CWPCranePool cwpCranePool : cwpCranePools) {
-            if (cwpCranePool.getFirstCraneFlag()) {
+            if (cwpData.getVesselVisit().getCwpCraneAddOrDelInfoList().size() == 0) {
+                if (cwpCranePool.getFirstCraneFlag()) {
+                    cwpCranePoolList.add(cwpCranePool);
+                    n++;
+                    if (n >= craneNum) {
+                        break;
+                    }
+                }
+            } else {
                 cwpCranePoolList.add(cwpCranePool);
                 n++;
                 if (n >= craneNum) {
