@@ -429,9 +429,6 @@ public class CWPProcess {
                         }
                         cwpBay.setDpAvailableWorkTime(workTime);
                         dpCraneSelectBay.setDpWorkTime(workTime);
-//                        if (workTime > 0) {
-//                            dpCraneSelectBay.setDpWorkTime(cwpBay.getDpCurrentTotalWorkTime());
-//                        }
 
                         //test
                         long workTimeL = 0;
@@ -442,17 +439,21 @@ public class CWPProcess {
                             Set<MOContainer> moContainerSet = (Set<MOContainer>) set;
                             for (MOContainer moContainer : moContainerSet) {
                                 if (moContainer.getDlType().equals("L")) {
-                                    workTimeL += 1;
+                                    workTimeL += moContainer.getCostTime();
                                     break;
                                 }
                                 if (moContainer.getDlType().equals("D")) {
-                                    workTimeD += 1;
+                                    workTimeD += moContainer.getCostTime();
                                     break;
                                 }
                             }
                         }
+                        if (workTimeD > 0 && workTimeL > 0) { //一般是大倍位，有装有卸，卸船做完需要重新决策
+                            cwpBay.setDpAvailableWorkTime(workTimeD);
+                            dpCraneSelectBay.setDpWorkTime(workTimeD);
+                        }
                         if (workTimeD == 0) {
-                            workTimeL = workTimeL * cwpData.getCwpConfiguration().getCraneMeanEfficiency();
+//                            workTimeL = workTimeL * cwpData.getCwpConfiguration().getCraneMeanEfficiency();
                             dpCraneSelectBay.addDpWorkTime(cwpData.getCwpConfiguration().getLoadFirstParam() * workTimeL);
                         }
                     }

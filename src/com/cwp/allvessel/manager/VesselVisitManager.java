@@ -11,7 +11,6 @@ import com.cwp.utils.BeanCopy;
 import com.cwp.utils.Validator;
 import com.shbtos.biz.smart.cwp.pojo.*;
 import com.shbtos.biz.smart.cwp.service.SmartCwpImportData;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,7 +38,7 @@ public class VesselVisitManager {
         return cwpSchedule;
     }
 
-    public VesselVisit buildVesselVisit(VesselVisit vesselVisit, SmartCwpImportData smartCwpImportData) {
+    public VesselVisit buildVesselVisit(VesselVisit vesselVisit, SmartCwpImportData smartCwpImportData, String wf) {
         Validator.notNull("船舶访问信息VesselVisit为null", vesselVisit);
         Long berthId = vesselVisit.getBerthId();
         cwpLogger.logInfo("开始创建船舶访问详细信息, berthId: " + berthId);
@@ -87,6 +86,11 @@ public class VesselVisitManager {
                         if ("Y".equals(manualFlag) || "Y".equals(cwoManualWorkflow)) { //人工指定工艺
                             moContainer.setWorkFlow(workFlow);
                         }
+                        if ("workFlow".equals(wf)) {
+                            moContainer.setWorkFlow(workFlow);
+                            moContainer.setMoveOrder(moveOrder);
+                        }
+
                         //重排的时候，锁定箱子的计划要排在最后
                         String cwoManualWi = smartVesselContainerInfo.getCwoManualWi();
                         if ("Y".equals(cwoManualWi)) {
@@ -209,7 +213,7 @@ public class VesselVisitManager {
             //读取加、减桥机信息
             for (SmartCraneAddOrDelInfo smartCraneAddOrDelInfo : smartCwpImportData.getSmartCraneAddOrDelInfoList()) {
                 if (berthId.equals(smartCraneAddOrDelInfo.getBerthId())) {
-                    if (smartCraneAddOrDelInfo.getAddOrDelDate().getTime() - vesselVisit.getCwpSchedule().getPlanBeginWorkTime().getTime() >= 3600000) {
+                    if (smartCraneAddOrDelInfo.getAddOrDelDate().getTime() - vesselVisit.getCwpSchedule().getPlanBeginWorkTime().getTime() >= 0) {
                         CWPCraneAddOrDelInfo cwpCraneAddOrDelInfo = new CWPCraneAddOrDelInfo();
                         cwpCraneAddOrDelInfo = (CWPCraneAddOrDelInfo) BeanCopy.copyBean(smartCraneAddOrDelInfo, cwpCraneAddOrDelInfo);
                         cwpLogger.logInfo("解析加、减桥机信息");
@@ -261,6 +265,10 @@ public class VesselVisitManager {
             this.readDefaultConfiguration(smartCwpConfigurationInfo, cwpConfiguration);
             vesselVisit.setCwpConfiguration(cwpConfiguration);
 
+            if (smartCwpImportData.getSmartCwpWorkBlockInfoList().size() == 0) {
+                cwpLogger.logInfo("输入数据中没有CWP作业块信息");
+            }
+            vesselVisit.setSmartCwpWorkBlockInfoList(smartCwpImportData.getSmartCwpWorkBlockInfoList());
 
             cwpLogger.logInfo("CWP船舶访问详细信息创建完成!");
         } catch (Exception e) {

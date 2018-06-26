@@ -127,11 +127,17 @@ public class ChangeDpWTMethod {
             if (cwpBay.getDpAvailableWorkTime() > 0) {
                 if (methodParameter.getSteppingCnt()) {
                     if (cwpBay.getBayNo() % 2 == 1 && bayNos.size() == 3) { //奇数倍位号，且舱内有3个作业倍位，则判断为小倍位
-                        if (cwpBay.getDpAvailableWorkTime().compareTo(cwpBay.getDpCurrentTotalWorkTime()) == 0) { //TODO: 只要小倍位可以作业，则优先于大倍位作业???
+                        if (cwpBay.getDpAvailableWorkTime().compareTo(cwpBay.getDpCurrentTotalWorkTime()) == 0) {
+                            //TODO: 只要小倍位可以作业，则优先于大倍位作业???
                             for (Integer bayNo : bayNos) {
                                 if (bayNo % 2 == 0) { //将大倍位当前时刻总作业量加到小倍位箱量上
                                     CWPBay cwpBayD = cwpData.getCWPBayByBayNo(bayNo);
                                     dpCraneSelectBay.addDpWorkTime(cwpBayD.getDpCurrentTotalWorkTime());
+                                    dpCraneSelectBay.addDpWorkTime(CWPDefaultValue.keyBayWorkTime);
+//                                    if (cwpBayD.getDpCurrentTotalWorkTime().compareTo(cwpBayD.getDpAvailableWorkTime()) > 0) {
+//                                        //大倍位不能一次性做完，则切换到小倍位做装船
+//                                        dpCraneSelectBay.addDpWorkTime(CWPDefaultValue.keyBayWorkTime);
+//                                    }
                                 }
                             }
                         }
